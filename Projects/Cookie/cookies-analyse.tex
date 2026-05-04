@@ -1,0 +1,441 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+
+\lstset{style=mystyle}
+
+\title{Analyse d'une Application de Gestion de Cookies}
+\author{Documentation Technique}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+Ce document présente une analyse détaillée d'une application web de gestion de cookies. L'application permet aux utilisateurs de créer des cookies avec un nom, une valeur et une date d'expiration, ainsi que d'afficher et de supprimer les cookies existants. L'application est composée de trois fichiers principaux : un fichier HTML (index.html), un fichier JavaScript (script.js) et un fichier CSS (style.css).
+
+\section{Structure de l'application}
+L'application suit une architecture simple basée sur le DOM et les événements JavaScript. Elle permet aux utilisateurs de :
+\begin{itemize}
+    \item Créer un nouveau cookie avec un nom, une valeur et une date d'expiration
+    \item Afficher tous les cookies existants
+    \item Supprimer des cookies en cliquant sur leur nom dans la liste
+\end{itemize}
+
+\section{Analyse du code HTML}
+Le fichier HTML fournit la structure de base de l'application :
+
+\begin{lstlisting}[language=HTML]
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cookies are funny</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Le créateur de cookies</h1>
+    <input type="text" name="cookieName" value="cookie-01">
+    <input type="text" name="cookieValue" value="56">
+    <input type="date" name="cookieExpire">
+
+    <div class="container-btns">
+        <button data-cookie="creer" class="btn1">Créer</button>
+        <button data-cookie="toutAfficher" class="btn2">Afficher</button>
+    </div>
+
+    <p class="info-txt"></p>
+    <ul class="affichage"></ul>
+
+    <script src="script.js"></script>
+</body>
+</html>
+\end{lstlisting}
+
+Les éléments clés sont :
+\begin{itemize}
+    \item Un titre principal
+    \item Trois champs de saisie pour le nom du cookie, sa valeur et sa date d'expiration
+    \item Deux boutons pour créer un cookie et afficher tous les cookies
+    \item Un paragraphe pour afficher des messages d'information
+    \item Une liste non ordonnée pour afficher les cookies existants
+\end{itemize}
+
+\section{Analyse du code JavaScript}
+
+\subsection{Initialisation et variables}
+Le script commence par initialiser des variables et configurer la date par défaut :
+
+\begin{lstlisting}[language=JavaScript]
+const today = new Date();
+const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+let day = ('0' + nextWeek.getDate()).slice(-2);
+let month = ('0' + (today.getMonth() + 1)).slice(-2);
+let year = today.getFullYear();
+
+const affichage = document.querySelector('.affichage');
+const btns = document.querySelectorAll('button');
+const inputs = document.querySelectorAll('input');
+const infoTxt = document.querySelector('.info-txt');
+let dejaFait = false;
+
+document.querySelector('input[type="date"]').value = `${year}-${month}-${day}`;
+\end{lstlisting}
+
+Cette partie du code :
+\begin{itemize}
+    \item Crée des objets Date pour aujourd'hui et la semaine prochaine
+    \item Formate le jour, le mois et l'année pour la date d'expiration par défaut
+    \item Sélectionne les éléments DOM nécessaires
+    \item Initialise une variable pour vérifier si un cookie existe déjà
+    \item Définit la valeur par défaut du champ de date à une semaine dans le futur
+\end{itemize}
+
+\subsection{Gestion des événements}
+Le script ajoute des écouteurs d'événements aux boutons :
+
+\begin{lstlisting}[language=JavaScript]
+btns.forEach(btn => {
+    btn.addEventListener('click', btnAction);
+});
+
+function btnAction(e) {
+    let nvObj = {};
+
+    inputs.forEach(input => {
+        let attrName = input.getAttribute('name');
+        let attrValue = attrName !== "cookieExpire" ? input.value : input.valueAsDate;
+        nvObj[attrName] = attrValue;
+    });
+
+    let description = e.target.getAttribute('data-cookie');
+
+    if (description === 'creer') {
+        creerCookie(nvObj.cookieName, nvObj.cookieValue, nvObj.cookieExpire);
+    } else if (description === 'toutAfficher') {
+        listecookies();
+    }
+}
+\end{lstlisting}
+
+Cette fonction :
+\begin{itemize}
+    \item Parcourt tous les champs de saisie et collecte leurs valeurs dans un objet
+    \item Traite différemment le champ de date pour obtenir un objet Date
+    \item Détermine quelle action effectuer en fonction du bouton cliqué
+    \item Appelle la fonction appropriée avec les valeurs collectées
+\end{itemize}
+
+\subsection{Création de cookies}
+La fonction \texttt{creerCookie()} crée un nouveau cookie :
+
+\begin{lstlisting}[language=JavaScript]
+function creerCookie(name, value, exp) {
+    infoTxt.innerText = "";
+    affichage.innerHTML = "";
+    affichage.childNodes.forEach(child => {
+        child.remove();
+    });
+
+    let cookies = document.cookie.split(';');
+    cookies.forEach(cookie => {
+        cookie = cookie.trim();
+        let formatCookie = cookie.split('=');
+        if (formatCookie[0] === encodeURIComponent(name)) {
+            dejaFait = true;
+        }
+    });
+
+    if (dejaFait) {
+        infoTxt.innerText = "Le nom est déjà utilisé";
+        dejaFait = false;
+        return;
+    }
+
+    if (name.length === 0) {
+        infoTxt.innerText = "Impossible de créer un cookie sans nom.";
+        return;
+    }
+
+    document.cookie = `${encodeURIComponent(name)}=${encodeURIComponent(value)};expires=${exp.toUTCString()}`;
+    let info = document.createElement('li');
+    info.innerText = `Cookie ${name} créé.`;
+    affichage.appendChild(info);
+    setTimeout(() => {
+        info.remove();
+    }, 1500);
+}
+\end{lstlisting}
+
+Cette fonction :
+\begin{itemize}
+    \item Réinitialise les messages d'information et la liste d'affichage
+    \item Vérifie si un cookie avec le même nom existe déjà
+    \item Vérifie si le nom du cookie est vide
+    \item Crée le cookie en utilisant l'API \texttt{document.cookie}
+    \item Encode le nom et la valeur du cookie pour éviter les problèmes de caractères spéciaux
+    \item Affiche un message de confirmation temporaire
+\end{itemize}
+
+\subsection{Affichage des cookies}
+La fonction \texttt{listecookies()} affiche tous les cookies existants :
+
+\begin{lstlisting}[language=JavaScript]
+function listecookies() {
+    let cookies = document.cookie.split(';');
+    if (cookies.join() === '') {
+        infoTxt.innerText = 'La liste de cookies est vide';
+        return;
+    }
+
+    affichage.innerText = "";
+    cookies.forEach(cookie => {
+        cookie = cookie.trim();
+        let formatCookie = cookie.split('=');
+        infoTxt.innerText = 'Cliquer sur le nom pour supprimer.';
+
+        let item = document.createElement('li');
+        item.innerText = `Nom : ${decodeURIComponent(formatCookie[0])}, Valeur : ${decodeURIComponent(formatCookie[1])}`;
+        affichage.appendChild(item);
+
+        item.addEventListener('click', () => {
+            document.cookie = `${formatCookie[0]}=; expires=${new Date(0)}`;
+            item.innerText = `Cookie ${formatCookie[0]} supprimé.`;
+            setTimeout(() => {
+                item.remove();
+            }, 1000);
+        });
+    });
+}
+\end{lstlisting}
+
+Cette fonction :
+\begin{itemize}
+    \item Récupère tous les cookies actuels
+    \item Vérifie si la liste de cookies est vide
+    \item Vide la liste d'affichage
+    \item Crée un élément de liste pour chaque cookie
+    \item Décode les noms et valeurs des cookies pour l'affichage
+    \item Ajoute un écouteur d'événements à chaque élément pour permettre la suppression
+    \item Supprime un cookie en définissant sa date d'expiration dans le passé
+    \item Affiche un message de confirmation temporaire après la suppression
+\end{itemize}
+
+\section{Analyse du code CSS}
+Le fichier CSS définit l'apparence de l'application :
+
+\begin{lstlisting}[language=CSS]
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: linear-gradient(to right, #121c3b, #2f2f2f);
+    color: #e2e2e2;
+}
+
+h1 {
+    text-align: center;
+    font-size: 4vw;
+    margin: 30px 0;
+}
+
+input {
+    display: block;
+    margin: 10px auto;
+    padding: 20px;
+    font-size: 20px;
+    width: 75%;
+    background: transparent;
+    color: #e2e2e2;
+    border: solid #e2e2e2;
+    border-radius: 5px;
+}
+
+input:focus {
+    box-shadow: 0px 0px 2px 2px rgba(255, 255, 255, 0.4);
+}
+
+button {
+    display: block;
+    width: 300px;
+    font-size: 25px;
+    padding: 25px;
+    margin: 5px auto;
+    background: transparent;
+    border: solid #e2e2e2;
+    border-radius: 5px;
+    color: #e2e2e2;
+}
+
+button:nth-child(1) {
+    animation: idle 2.5s alternate infinite;
+}
+
+button:hover {
+    color: #121c3b;
+    cursor: pointer;
+    background: #e2e2e2;
+    transition: 0.3s;
+    animation: bounce 0.3s;
+}
+
+@keyframes bounce {
+    0% {}
+    50% {
+        transform: scale(1.03);
+    }
+    100% {
+        transform: scale(1.01);
+    }
+}
+
+@keyframes idle {
+    0% {
+        transform: matrix(1, 0, 0, 1, 0, 0);
+    }
+    93% {
+        transform: matrix(1, 0, 0, 1, 0, 0);
+    }
+    95% {
+        transform: matrix(1.03, -0.03, 0.03, 1.03, 0, 0);
+    }
+    97% {
+        transform: matrix(1.03, 0.03, -0.03, 1.03, 0, 0);
+    }
+}
+
+.affichage {
+    list-style-type: none;
+    margin: 0 auto;
+    width: 75%;
+    padding: 15px;
+    font-size: 20px;
+}
+
+.info-txt {
+    margin: 10px auto;
+    padding: 20px;
+    font-size: 20px;
+    width: 75%;
+    text-align: center;
+}
+\end{lstlisting}
+
+Les styles principaux incluent :
+\begin{itemize}
+    \item Une réinitialisation CSS de base pour normaliser l'apparence
+    \item Un arrière-plan dégradé sombre avec du texte clair
+    \item Des champs de saisie et des boutons transparents avec des bordures blanches
+    \item Des animations pour les boutons (idle et bounce)
+    \item Une mise en page centrée avec des largeurs relatives
+    \item Des effets de survol pour améliorer l'interactivité
+\end{itemize}
+
+\section{Flux de l'application}
+Le flux de l'application peut être résumé comme suit :
+
+\begin{enumerate}
+    \item L'utilisateur entre un nom, une valeur et une date d'expiration pour un cookie
+    \item L'utilisateur clique sur "Créer" pour créer le cookie
+    \begin{itemize}
+        \item Si le nom est déjà utilisé, un message d'erreur s'affiche
+        \item Si le nom est vide, un message d'erreur s'affiche
+        \item Sinon, le cookie est créé et un message de confirmation s'affiche
+    \end{itemize}
+    \item L'utilisateur clique sur "Afficher" pour voir tous les cookies existants
+    \begin{itemize}
+        \item Si aucun cookie n'existe, un message l'indique
+        \item Sinon, tous les cookies sont listés avec leur nom et leur valeur
+    \end{itemize}
+    \item L'utilisateur peut cliquer sur un cookie dans la liste pour le supprimer
+    \begin{itemize}
+        \item Le cookie est supprimé et un message de confirmation s'affiche
+        \item L'élément est retiré de la liste après un court délai
+    \end{itemize}
+\end{enumerate}
+
+\section{Aspects techniques importants}
+
+\subsection{Manipulation des cookies}
+L'application utilise l'API \texttt{document.cookie} pour manipuler les cookies :
+\begin{itemize}
+    \item Création : \texttt{document.cookie = `\${encodeURIComponent(name)}=\${encodeURIComponent(value)};expires=\${exp.toUTCString()}`}
+    \item Lecture : \texttt{document.cookie.split(';')}
+    \item Suppression : \texttt{document.cookie = `\${formatCookie[0]}=; expires=\${new Date(0)}`}
+\end{itemize}
+
+\subsection{Encodage et décodage}
+L'application utilise \texttt{encodeURIComponent()} et \texttt{decodeURIComponent()} pour gérer les caractères spéciaux dans les noms et valeurs des cookies.
+
+\subsection{Manipulation du DOM}
+L'application utilise diverses méthodes de manipulation du DOM :
+\begin{itemize}
+    \item Sélection d'éléments : \texttt{document.querySelector()} et \texttt{document.querySelectorAll()}
+    \item Création d'éléments : \texttt{document.createElement()}
+    \item Modification du contenu : \texttt{element.innerText} et \texttt{element.innerHTML}
+    \item Ajout d'éléments : \texttt{element.appendChild()}
+    \item Suppression d'éléments : \texttt{element.remove()}
+\end{itemize}
+
+\subsection{Gestion des événements}
+L'application utilise des écouteurs d'événements pour réagir aux actions de l'utilisateur :
+\begin{itemize}
+    \item \texttt{element.addEventListener('click', function)}
+    \item \texttt{setTimeout()} pour les actions différées
+\end{itemize}
+
+\section{Conclusion}
+Cette application de gestion de cookies est un exemple simple mais complet d'une application web interactive. Elle démontre :
+\begin{itemize}
+    \item L'utilisation de l'API \texttt{document.cookie} pour manipuler les cookies du navigateur
+    \item La manipulation dynamique du DOM pour créer une interface réactive
+    \item L'utilisation d'écouteurs d'événements pour gérer les interactions utilisateur
+    \item L'application de styles CSS et d'animations pour améliorer l'expérience utilisateur
+\end{itemize}
+
+L'application pourrait être améliorée en ajoutant :
+\begin{itemize}
+    \item Une validation plus robuste des entrées utilisateur
+    \item La possibilité de modifier les cookies existants
+    \item Une meilleure gestion des erreurs
+    \item Une interface responsive pour les appareils mobiles
+\end{itemize}
+
+\end{document}
