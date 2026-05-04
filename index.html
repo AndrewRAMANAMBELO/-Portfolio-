@@ -167,13 +167,18 @@
         padding: 48px 48px 80px;
       }
 
-      .section {
-        display: none;
-      }
-      .section.active {
-        display: block;
-        animation: sectionFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-      }
+.section {
+  display: none; /* On cache totalement les sections inactives */
+  opacity: 0;
+  transform: translateY(15px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.section.active {
+  display: block; /* On l'affiche dans le flux normal */
+  opacity: 1;
+  transform: translateY(0);
+}
 
       @keyframes sectionFadeIn {
         from {
@@ -478,40 +483,68 @@
         }
       }
 
-      @media (max-width: 900px) {
-        .layout {
-          flex-direction: column;
-        }
-        aside {
-          width: 100%;
-          height: auto;
-          position: relative;
-          top: 0;
-          border-right: none;
-          border-bottom: 1px solid var(--border);
-          padding: 30px 20px;
-        }
-        .exp-card {
-          flex-direction: column;
-        }
-        .exp-logo,
-        .exp-logo-1 {
-          width: 100%;
-          height: 120px;
-        }
-        main {
-          padding: 30px 20px;
-        }
-        nav {
-          padding: 0 20px;
-        }
-        .nav-links {
-          display: none;
-        }
-        .projects-grid {
-          grid-template-columns: 1fr;
-        }
+      /* Style du bouton menu (caché sur PC) */
+      /* ================= MENU HAMBURGER ================= */
+
+      /* PC → caché */
+      .menu-toggle {
+        display: none;
+        background: none;
+        border: none;
+        color: white;
+        font-size: 28px;
+        cursor: pointer;
       }
+
+      /* MOBILE */
+@media (max-width: 900px) {
+  .menu-toggle {
+    display: block;
+  }
+
+  .nav-links {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 60px;
+    left: -100%;
+    background: var(--bg-nav);
+    width: 100%;
+    padding: 30px;
+    gap: 25px;
+    transition: var(--transition-smooth);
+    border-bottom: 1px solid var(--border);
+    z-index: 99;
+  }
+
+  .nav-links.mobile-active {
+    left: 0;
+  }
+
+  .projects-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* ✅ FIX RESPONSIVE LAYOUT */
+  .layout {
+    flex-direction: column;
+  }
+
+  aside {
+    position: static; /* 🔥 IMPORTANT (pas relative) */
+    width: 100%;
+    min-width: 100%;
+    height: auto; /* 🔥 enlève le calc(100vh - 60px) */
+    top: unset; /* 🔥 reset sticky */
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 25px 20px;
+  }
+
+  main {
+    padding: 30px 20px 60px;
+  }
+}
       /* Dans ton bloc <style> */
 
       .carousel-slide {
@@ -543,7 +576,12 @@
   </head>
   <body>
     <nav>
-      <span class="nav-brand">Andrew Mahery</span>
+      <span class="nav-brand"
+        ><a href="index.html" class="links">Andrew Mahery</a></span
+      >
+
+      <button class="menu-toggle" aria-label="Ouvrir le menu">☰</button>
+
       <ul class="nav-links">
         <li><a href="#" class="active" data-section="accueil">Accueil</a></li>
         <li><a href="#" data-section="parcours">Parcours</a></li>
@@ -941,6 +979,32 @@
               "Autonome & Dynamique",
           },
         };
+        // À mettre à l'intérieur de ton DOMContentLoaded
+        const menuToggle = document.querySelector(".menu-toggle");
+        const navLinksContainer = document.querySelector(".nav-links");
+
+        // Toggle uniquement en mobile
+        menuToggle.addEventListener("click", () => {
+          if (window.innerWidth <= 900) {
+            navLinksContainer.classList.toggle("mobile-active");
+          }
+        });
+
+        // Fermer le menu après clic (mobile)
+        navLinks.forEach((link) => {
+          link.addEventListener("click", () => {
+            if (window.innerWidth <= 900) {
+              navLinksContainer.classList.remove("mobile-active");
+            }
+          });
+        });
+
+        // Reset si retour en PC
+        window.addEventListener("resize", () => {
+          if (window.innerWidth > 900) {
+            navLinksContainer.classList.remove("mobile-active");
+          }
+        });
 
         window.navigate = function (id) {
           sections.forEach((s) => s.classList.remove("active"));
@@ -949,7 +1013,10 @@
           const navItem = document.querySelector(`[data-section="${id}"]`);
           if (navItem) navItem.classList.add("active");
           sidebarTitle.innerHTML = sidebarContent[id].title;
-          sidebarDesc.textContent = sidebarContent[id].desc;
+          sidebarDesc.innerHTML = sidebarContent[id].desc.replace(
+            /\n/g,
+            "<br>",
+          );
         };
 
         navLinks.forEach((a) => {
@@ -995,6 +1062,7 @@
         document.getElementById("prevBtn").onclick = () => goTo(cur - 1);
         document.getElementById("nextBtn").onclick = () => goTo(cur + 1);
       });
+      
     </script>
   </body>
 </html>
